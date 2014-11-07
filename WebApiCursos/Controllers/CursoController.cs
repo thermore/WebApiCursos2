@@ -4,35 +4,39 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Web.Http;
+using System.Web.WebSockets;
 using WebApiCursos.Models;
+using WebApiCursos.Models.ViewModel;
 using WebApiCursos.Repositorio;
 
 namespace WebApiCursos.Controllers
 {
     public class CursoController : ApiController
     {
-        private Repositorio<Curso>  repo=new Repositorio<Curso>(new cursoEntities());
+        private IRepositorio<CursoViewModel,Curso> repo=
+            new Repositorio<CursoViewModel,Curso> 
+                (new cursoEntities());
 
         // GET: api/Curso
-        public IEnumerable<Curso> Get()
+        public IEnumerable<CursoViewModel> Get()
         {
             return repo.Get();
         }
 
         // GET: api/Curso/5
-        public Curso Get(int id)
+        public CursoViewModel Get(int id)
         {
             return repo.Get(id);
         }
 
         // POST: api/Curso
-        public void Post([FromBody]Curso value)
+        public void Post([FromBody]CursoViewModel value)
         {
             repo.Add(value);
         }
 
         // PUT: api/Curso/5
-        public void Put([FromBody]Curso value)
+        public void Put([FromBody]CursoViewModel value)
         {
             repo.Actualizar(value);
         }

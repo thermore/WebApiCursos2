@@ -5,12 +5,15 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Web;
 using WebApiCursos.Models;
+using WebApiCursos.Models.ViewModel;
 
 namespace WebApiCursos.Repositorio
 {
-    public class Repositorio<TEntidad>:IRepositorio<TEntidad> where TEntidad : class
+    public class Repositorio<TViewModel, TEntidad> :
+        IRepositorio<TViewModel, TEntidad>
+        where TViewModel : class,IViewModel<TEntidad>, new() //TViewModel tiene q ser una clase e implemente un IViewModel de tipo TEntidad
+        where TEntidad : class  //las renstricción se crea con new, 
     {
-
         protected cursoEntities Context;  //instancia conexión
 
         public Repositorio(cursoEntities context)
@@ -24,9 +27,33 @@ namespace WebApiCursos.Repositorio
         }
 
 
-        public virtual int Add(TEntidad modelo) //virtual para poder hacer algo distinto
+        public virtual TViewModel Add(TViewModel modelo) //virtual para poder hacer algo distinto
         {
-            DbSet.Add(modelo);
+            var m = modelo.ToBaseDatos(); //me devuelve un objeto de tipo modelo, obejeto preparado xa enviar a la bbdd
+
+            DbSet.Add(m);
+
+            try
+            {
+                Context.SaveChanges();  //guardame los cambios
+                modelo.FromBaseDatos(m); //m tiene el id, pero modelo no tiene su id
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                return null;
+            }
+
+            return modelo; //actualizado lo q hemos enviado a la bbdd
+        }
+
+
+        public virtual int Borrar(int id)
+        {
+
+            var mod = DbSet.Find(id);
+            DbSet.Remove(mod);
+
             int n = 0;
 
             try
@@ -41,11 +68,11 @@ namespace WebApiCursos.Repositorio
             return n;
         }
 
-
-        public virtual int Borrar(int id)
+        public virtual int Borrar(TViewModel modelo)
         {
-            var obj = Get(id);
-            DbSet.Remove(obj);
+
+            var dato = GetModelDesdeViewModel(modelo);
+            DbSet.Remove(dato);
 
             int n = 0;
 
@@ -63,7 +90,7 @@ namespace WebApiCursos.Repositorio
 
         public virtual int Borrar(Expression<Func<TEntidad, bool>> lam)
         {
-            var datos = Get(lam);
+            var datos = DbSet.Where(lam);
             DbSet.RemoveRange(datos);
             int n=0;
 
@@ -79,8 +106,13 @@ namespace WebApiCursos.Repositorio
             return n;
         }
 
-        public virtual int Actualizar(TEntidad modelo)
+        public virtual int Actualizar(TViewModel modelo) //pasa un TViewModel
         {
+            var datos = GetModelDesdeViewModel(modelo);
+
+            modelo.UpdateBaseDatos(datos);
+
+            
             Context.Entry(modelo).State = EntityState.Modified; //actualiza un objeto, sobre una bbdd el método Entry nos dice que el estado es modificado
             int n = 0;
             //n = Context.SaveChanges();
@@ -96,19 +128,50 @@ namespace WebApiCursos.Repositorio
             return n;
         }
 
-        public virtual List<TEntidad> Get()
+        public TEntidad GetModelDesdeViewModel(TViewModel modelo)
         {
-            return DbSet.Include("Profesor1").Include("Aula").ToList();
+            var datos = DbSet.Find(modelo.GetPk());
+            return datos;
         }
 
-        public virtual List<TEntidad> Get(Expression<Func<TEntidad, bool>> lam)
+        public virtual List<TViewModel> Get()
         {
-            return DbSet.Where(lam).ToList();
+            var datos = DbSet;
+
+            List<TViewModel> list=new List<TViewModel>();
+
+            foreach (var entidad in datos)
+            {
+                var v = new TViewModel();
+                v.FromBaseDatos(entidad);
+                list.Add(v);
+
+            }
+            return list;
         }
 
-        public virtual TEntidad Get(int pk)
+        public virtual List<TViewModel> Get(Expression<Func<TEntidad, bool>> lam)
         {
-            return DbSet.Find(pk);
+            var datos = DbSet.Where(lam);
+
+            List<TViewModel> list = new List<TViewModel>();
+
+            foreach (var entidad in datos)
+            {
+                var v = new TViewModel();
+                v.FromBaseDatos(entidad);
+                list.Add(v);
+
+            }
+            return list;
+        }
+
+        public virtual TViewModel Get(int pk)
+        {
+            var v = new TViewModel();
+            var entidad = DbSet.Find(pk);
+            v.FromBaseDatos(entidad));
+            return v;
         }
     }
 }
